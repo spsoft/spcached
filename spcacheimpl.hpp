@@ -7,11 +7,13 @@
 #define __spcacheimpl_hpp__
 
 #include <pthread.h>
+#include <time.h>
 
 #include "spcache.hpp"
 
 class SP_ArrayList;
 class SP_MsgBlockList;
+class SP_Buffer;
 
 class SP_CacheItemHandler : public SP_CacheHandler {
 public:
@@ -48,12 +50,17 @@ public:
 
 	void get( SP_ArrayList * keyList, SP_MsgBlockList * blockList );
 
+	void stat( SP_Buffer * buffer );
+
 private:
 
 	// 0 : OK, -1 : NOT_FOUND, -2 : item is non-numeric value
 	int calc( const void * key, int delta, int isIncr, int * newValue );
 
 	SP_Cache * mCache;
+
+	time_t mStartTime;
+	size_t mTotalItems, mCmdGet, mCmdSet;
 
 	pthread_mutex_t mMutex;
 };

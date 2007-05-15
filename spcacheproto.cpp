@@ -227,6 +227,8 @@ int SP_CacheProtoHandler :: handle( SP_Request * request, SP_Response * response
 		} else {
 			if( message->isCommand( "get" ) ) {
 				mCacheEx->get( message->getKeyList(), response->getReply()->getFollowBlockList() );
+			} else if( message->isCommand( "stats" ) ) {
+				mCacheEx->stat( reply );
 			} else if( message->isCommand( "version" ) ) {
 				reply->append( "VERSION 1.0\r\n" );
 			} else if( message->isCommand( "quit" ) ) {

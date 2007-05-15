@@ -6,6 +6,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <unistd.h>
 
 #include "spbuffer.hpp"
 #include "sputils.hpp"
@@ -88,6 +92,9 @@ SP_CacheEx :: SP_CacheEx( int algo, int maxItems )
 	mCache = SP_Cache::newInstance( algo, maxItems,
 			new SP_CacheItemHandler(), 0 );
 
+	time( &mStartTime );
+	mTotalItems = mCmdGet = mCmdSet = 0;
+
 	pthread_mutex_init( &mMutex, NULL );
 }
 
@@ -107,6 +114,7 @@ int SP_CacheEx :: add( void * item, time_t expTime )
 	if( 0 == mCache->get( item, NULL ) ) {
 		ret = 0;
 		mCache->put( item, expTime );
+		mTotalItems++;
 	}
 
 	pthread_mutex_unlock( &mMutex );
@@ -119,6 +127,8 @@ int SP_CacheEx :: set( void * item, time_t expTime )
 	pthread_mutex_lock( &mMutex );
 
 	mCache->put( item, expTime );
+	mTotalItems++;
+	mCmdSet++;
 
 	pthread_mutex_unlock( &mMutex );
 
@@ -134,6 +144,7 @@ int SP_CacheEx :: replace( void * item, time_t expTime )
 	if( mCache->get( item, NULL ) ) {
 		ret = 0;
 		mCache->put( item, expTime );
+		mTotalItems++;
 	}
 
 	pthread_mutex_unlock( &mMutex );
@@ -225,9 +236,64 @@ void SP_CacheEx :: get( SP_ArrayList * keyList, SP_MsgBlockList * blockList )
 		SP_CacheItem keyItem( (char*)keyList->getItem( i ) );
 		mCache->get( &keyItem, blockList );
 	}
+	mCmdGet++;
 
 	pthread_mutex_unlock( &mMutex );
 
 	blockList->append( new SP_SimpleMsgBlock( (void*)"END\r\n", 5, 0 ) );
+}
+
+void SP_CacheEx :: stat( SP_Buffer * buffer )
+{
+	pthread_mutex_lock( &mMutex );
+
+	char temp[ 512 ] = { 0 };
+
+	SP_CacheStatistics * stat = mCache->getStatistics();
+
+	snprintf( temp, sizeof( temp ), "STAT pid %u\r\n", getpid() );
+	buffer->append( temp );
+
+	snprintf( temp, sizeof( temp ), "STAT uptime %ld\r\n", time( NULL ) - mStartTime );
+	buffer->append( temp );
+
+	snprintf( temp, sizeof( temp ), "STAT time %ld\r\n", time( NULL ) );
+	buffer->append( temp );
+
+	struct rusage usage;
+	getrusage(RUSAGE_SELF, &usage);
+
+	snprintf( temp, sizeof( temp ), "STAT rusage_user %ld.%06ld\r\n",
+			usage.ru_utime.tv_sec, usage.ru_utime.tv_usec );
+	buffer->append( temp );
+
+	snprintf( temp, sizeof( temp ), "STAT rusage_system %ld.%06ld\r\n",
+			usage.ru_stime.tv_sec, usage.ru_stime.tv_usec );
+	buffer->append( temp );
+
+	snprintf( temp, sizeof( temp ), "STAT curr_items %d\r\n", stat->getSize() );
+	buffer->append( temp );
+
+	snprintf( temp, sizeof( temp ), "STAT total_items %d\r\n", mTotalItems );
+	buffer->append( temp );
+
+	snprintf( temp, sizeof( temp ), "STAT cmd_get %d\r\n", mCmdGet );
+	buffer->append( temp );
+
+	snprintf( temp, sizeof( temp ), "STAT cmd_set %d\r\n", mCmdSet );
+	buffer->append( temp );
+
+	snprintf( temp, sizeof( temp ), "STAT get_hits %d\r\n", stat->getHits() );
+	buffer->append( temp );
+
+	snprintf( temp, sizeof( temp ), "STAT get_misses %d\r\n",
+			stat->getAccesses() - stat->getHits() );
+	buffer->append( temp );
+
+	buffer->append( "END\r\n" );
+
+	delete stat;
+
+	pthread_mutex_unlock( &mMutex );
 }
 

@@ -24,6 +24,12 @@ SPDICT_LIB  = -L../spdict/ -lspdict
 CFLAGS  += $(SPSERVER_INCL) $(SPDICT_INCL)
 LDFLAGS += $(SPSERVER_LIB) $(SPDICT_LIB) -lpthread -lresolv
 
+#-------------------Cprof related Macros----------------
+ifeq ($(cprof), 1)
+	CFLAGS += -finstrument-functions
+	LDFLAGS += -lcprof
+endif
+
 #--------------------------------------------------------------------
 
 TARGET = spcached
