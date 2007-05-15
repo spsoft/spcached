@@ -17,12 +17,12 @@
 
 int main( int argc, char * argv[] )
 {
-	int port = 11216, maxThreads = 1;
+	int port = 11216, maxThreads = 1, maxCount = 100000;
 
 	extern char *optarg ;
 	int c ;
 
-	while( ( c = getopt ( argc, argv, "p:t:v" )) != EOF ) {
+	while( ( c = getopt ( argc, argv, "p:t:c:v" )) != EOF ) {
 		switch ( c ) {
 			case 'p' :
 				port = atoi( optarg );
@@ -30,9 +30,12 @@ int main( int argc, char * argv[] )
 			case 't':
 				maxThreads = atoi( optarg );
 				break;
+			case 'c':
+				maxCount = atoi( optarg );
+				break;
 			case '?' :
 			case 'v' :
-				printf( "Usage: %s [-p <port>] [-t <threads>]\n", argv[0] );
+				printf( "Usage: %s [-p <port>] [-t <threads>] [-c <cache_items>\n", argv[0] );
 				exit( 0 );
 		}
 	}
@@ -43,7 +46,7 @@ int main( int argc, char * argv[] )
 	openlog( "spcached", LOG_CONS | LOG_PID, LOG_USER );
 #endif
 
-	SP_CacheEx cacheEx( SP_Cache::eLRU, 1000000 );
+	SP_CacheEx cacheEx( SP_Cache::eFIFO, maxCount > 0 ? maxCount : 100000 );
 
 	SP_Server server( "", port, new SP_CacheProtoHandlerFactory( &cacheEx ) );
 
