@@ -7,6 +7,7 @@
 #define __spcachemsg_hpp__
 
 #include <time.h>
+#include <pthread.h>
 
 #include "spcache.hpp"
 
@@ -21,9 +22,6 @@ public:
 	void setKey( const char * key );
 	const char * getKey() const;
 
-	void setFlags( unsigned short flags );
-	unsigned short getFlags() const;
-
 	void appendDataBlock( const void * dataBlock, size_t dataBytes,
 			size_t blockCapacity = 0 );
 	void setDataBlock( const void * dataBlock, size_t dataBytes );
@@ -31,12 +29,19 @@ public:
 	size_t getDataBytes() const;
 	size_t getBlockCapacity() const;
 
+	void addRef();
+	void release();
+
 private:
+	void init();
+
 	char * mKey;
-	unsigned short mFlags;
 
 	void * mDataBlock;
 	size_t mDataBytes, mBlockCapacity;
+
+	pthread_mutex_t mMutex;
+	int mRefCount;
 };
 
 class SP_CacheProtoMessage {
