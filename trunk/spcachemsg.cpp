@@ -13,27 +13,55 @@
 
 SP_CacheItem :: SP_CacheItem( const char * key )
 {
+	init();
 	mKey = strdup( key );
-	mFlags = 0;
-
-	mDataBlock = NULL;
-	mDataBytes = mBlockCapacity = 0;
 }
 
 SP_CacheItem :: SP_CacheItem()
 {
+	init();
+}
+
+void SP_CacheItem :: init()
+{
 	mKey = NULL;
-	mFlags = 0;
 
 	mDataBlock = NULL;
 	mDataBytes = mBlockCapacity = 0;
+
+	mRefCount = 1;
+
+	pthread_mutex_init( &mMutex, NULL );
 }
 
 SP_CacheItem :: ~SP_CacheItem()
 {
 	if( NULL != mKey ) free( mKey );
+	mKey = NULL;
 
 	if( NULL != mDataBlock ) free( mDataBlock );
+	mDataBlock = NULL;
+
+	pthread_mutex_destroy( &mMutex );
+}
+
+void SP_CacheItem :: addRef()
+{
+	pthread_mutex_lock( &mMutex );
+	mRefCount++;
+	pthread_mutex_unlock( &mMutex );
+}
+
+void SP_CacheItem :: release()
+{
+	int refCount = 1;
+
+	pthread_mutex_lock( &mMutex );
+	mRefCount--;
+	refCount = mRefCount;
+	pthread_mutex_unlock( &mMutex );
+
+	if( refCount <= 0 ) delete this;
 }
 
 void SP_CacheItem :: setKey( const char * key )
@@ -47,16 +75,6 @@ void SP_CacheItem :: setKey( const char * key )
 const char * SP_CacheItem :: getKey() const
 {
 	return mKey;
-}
-
-void SP_CacheItem :: setFlags( unsigned short flags )
-{
-	mFlags = flags;
-}
-
-unsigned short SP_CacheItem :: getFlags() const
-{
-	return mFlags;
 }
 
 void SP_CacheItem :: appendDataBlock( const void * dataBlock, size_t dataBytes,
@@ -117,11 +135,13 @@ SP_CacheProtoMessage :: SP_CacheProtoMessage()
 SP_CacheProtoMessage :: ~SP_CacheProtoMessage()
 {
 	if( NULL != mItem ) delete mItem;
+	mItem = NULL;
 
 	for( ; mKeyList->getCount() > 0; ) {
 		free( mKeyList->takeItem( SP_ArrayList::LAST_INDEX ) );
 	}
 	delete mKeyList;
+	mKeyList = NULL;
 }
 
 void SP_CacheProtoMessage :: setCommand( const char * command )

@@ -43,7 +43,7 @@ int main( int argc, char * argv[] )
 	openlog( "spcached", LOG_CONS | LOG_PID, LOG_USER );
 #endif
 
-	SP_CacheEx cacheEx( SP_Cache::eLRU, 100000 );
+	SP_CacheEx cacheEx( SP_Cache::eLRU, 1000000 );
 
 	SP_Server server( "", port, new SP_CacheProtoHandlerFactory( &cacheEx ) );
 

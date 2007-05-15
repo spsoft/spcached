@@ -16,6 +16,24 @@
 #include "spcachemsg.hpp"
 #include "spcacheimpl.hpp"
 
+static char * sp_strsep(char **s, const char *del)
+{
+	char *d, *tok;
+
+	if (!s || !*s) return NULL;
+	tok = *s;
+	d = strstr(tok, del);
+
+	if (d) {
+		*s = d + strlen(del);
+		*d = '\0';
+	} else {
+		*s = NULL;
+	}
+
+	return tok;
+}
+
 SP_CacheMsgDecoder :: SP_CacheMsgDecoder()
 {
 	mMessage = NULL;
@@ -50,8 +68,10 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 				if( 4 == ret && '\0' != key[0] ) {
 					mMessage->setExpTime( expTime );
 					mMessage->getItem()->setKey( key );
-					mMessage->getItem()->setFlags( flags );
-					mMessage->getItem()->appendDataBlock( "", 0, bytes + 2 );
+
+					char buffer[ 512] = { 0 };
+					ret = snprintf( buffer, sizeof( buffer ), "VALUE %s %d %d\r\n", key, flags, bytes );
+					mMessage->getItem()->appendDataBlock( buffer, ret, bytes + ret + 2 );
 
 					status = eMoreData;
 				} else {
@@ -62,7 +82,7 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 
 				char * next = strchr( line, ' ' );
 				for( ; NULL != next && '\0' != *next; ) {
-					char * nextKey = strsep( &next, " " );
+					char * nextKey = sp_strsep( &next, " " );
 					if( NULL != nextKey && '\0' != *nextKey ) {
 						mMessage->getKeyList()->append( strdup( nextKey ) );	
 					}
@@ -89,7 +109,7 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 					mMessage->setError( "CLIENT_ERROR bad command line format" );
 				}
 			} else {
-				mMessage->setError( "ERROR" );
+				mMessage->setCommand( line );
 			}
 
 			free( line );
@@ -98,7 +118,7 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 
 	if( NULL != mMessage && NULL == mMessage->getError() && inBuffer->getSize() > 0 ) {
 		SP_CacheItem * item = mMessage->getItem();
-		int bytes = item->getBlockCapacity() - item->getDataBytes();
+		size_t bytes = item->getBlockCapacity() - item->getDataBytes();
 		if( bytes > 0 ) {
 			bytes = bytes > inBuffer->getSize() ? inBuffer->getSize() : bytes;
 			item->appendDataBlock( inBuffer->getBuffer(), bytes );
@@ -107,7 +127,8 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 
 		if( item->getBlockCapacity() <= item->getDataBytes() ) status = eOK;
 
-		if( 0 != strncmp( ((char*)item->getDataBlock()) + item->getDataBytes() - 2, "\r\n", 2 ) ) {
+		if( eOK == status && item->getDataBytes() > 2 &&0 != strncmp(
+				((char*)item->getDataBlock()) + item->getDataBytes() - 2, "\r\n", 2 ) ) {
 			mMessage->setError( "CLIENT_ERROR bad data chunk" );
 		}
 	}
@@ -205,7 +226,11 @@ int SP_CacheProtoHandler :: handle( SP_Request * request, SP_Response * response
 			}
 		} else {
 			if( message->isCommand( "get" ) ) {
-				mCacheEx->get( message->getKeyList(), reply );
+				mCacheEx->get( message->getKeyList(), response->getReply()->getFollowBlockList() );
+			} else if( message->isCommand( "version" ) ) {
+				reply->append( "VERSION 1.0\r\n" );
+			} else if( message->isCommand( "quit" ) ) {
+				ret = 1;
 			} else {
 				ret = 1;
 				reply->append( "ERROR unknown command: " );

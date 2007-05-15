@@ -11,6 +11,7 @@
 #include "spcache.hpp"
 
 class SP_ArrayList;
+class SP_MsgBlockList;
 
 class SP_CacheItemHandler : public SP_CacheHandler {
 public:
@@ -45,7 +46,7 @@ public:
 	// 0 : OK, -1 : NOT_FOUND, -2 : item is non-numeric value
 	int decr( const void * key, int delta, int * newValue );
 
-	void get( SP_ArrayList * keyList, SP_Buffer * outBuffer );
+	void get( SP_ArrayList * keyList, SP_MsgBlockList * blockList );
 
 private:
 
@@ -54,7 +55,7 @@ private:
 
 	SP_Cache * mCache;
 
-	pthread_rwlock_t mLock;
+	pthread_mutex_t mMutex;
 };
 
 #endif
