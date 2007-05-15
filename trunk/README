@@ -1,0 +1,62 @@
+			 spcached README
+
+1.Introduction
+
+spcached is a distributed memory object caching system, and implements
+memcached protocol.
+
+More detail about memcached and memcached protocol:
+
+	http://www.danga.com/memcached/
+	http://code.sixapart.com/svn/memcached/trunk/server/doc/protocol.txt
+
+spcached bases on spserver and spdict. More detail about spserver and spdict:
+
+	http://code.google.com/p/spserver/
+	http://code.google.com/p/spdict/
+
+The spcached code was developed under Linux, but has also been tested under
+Solaris.
+
+You can get the code from the spcached home page:
+
+	http://code.google.com/p/spcached/
+
+2.Building
+
+Before building spcached, spserver and spdict must been installed. Test with
+spserver 0.3 and spdict 0.2.
+
+You can download spserver 0.3 and spdict 0.2 from its home page:
+
+	http://code.google.com/p/spserver/downloads/list
+	http://code.google.com/p/spdict/downloads/list
+
+Edit spcached/Makefile to specify the path of spserver and spdict:
+
+	SPSERVER_INCL = -I<path_to_spserver_include>
+	SPSERVER_LIB  = -L<path_to_spserver_library> -lspserver
+
+	SPDICT_INCL = -I<path_to_spdict_include>
+	SPDICT_LIB  = -L<path_to_spdict_library> -lspdict
+
+To build spcached, type
+
+$ cd spcached
+$ make
+
+This will build the spcached program.
+
+$ ./spcached -v
+Usage: ./spcached [-p <port>] [-t <threads>]
+
+$ ./spcached -p 11216
+[msg] This server is listening on port [11216].
+
+
+Reports of successful use of spcached are appreciated.
+
+Enjoy!
+
+				-- stephen liu <stephen.nil@gmail.com>
+
