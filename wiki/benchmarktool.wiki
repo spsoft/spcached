@@ -1,8 +1,8 @@
-#A java class for benchmark memcached, which uses threads to execute set and get operations.
+A java class for benchmark memcached, which uses threads to execute set and get operations.
 
 = Introduction =
 
-This class bases on [http://www.whalin.com/memcached/ java_memcached ].
+This class bases on [http://www.whalin.com/memcached/ java_memcached] [http://img.whalin.com/memcached/jdk142/standard/java_memcached-release_1.3.2.tar.gz 1.3.2].
 
 
 = Details =
@@ -167,5 +167,4 @@ public class MemCachedThreadBench {
 
 
 }}}
-
 
