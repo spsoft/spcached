@@ -136,7 +136,7 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 	return status;
 }
 
-const void * SP_CacheMsgDecoder :: getMsg()
+SP_CacheProtoMessage * SP_CacheMsgDecoder :: getMsg()
 {
 	return mMessage;
 }

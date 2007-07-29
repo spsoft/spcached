@@ -7,8 +7,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
+#include <string.h>
 
 #include "spserver.hpp"
+#include "splfserver.hpp"
+
 #include "spcache.hpp"
 
 #include "spcachemsg.hpp"
@@ -18,11 +21,12 @@
 int main( int argc, char * argv[] )
 {
 	int port = 11216, maxThreads = 1, maxCount = 100000;
+	const char * serverType = "hahs";
 
 	extern char *optarg ;
 	int c ;
 
-	while( ( c = getopt ( argc, argv, "p:t:c:v" )) != EOF ) {
+	while( ( c = getopt ( argc, argv, "p:t:c:s:v" )) != EOF ) {
 		switch ( c ) {
 			case 'p' :
 				port = atoi( optarg );
@@ -33,9 +37,12 @@ int main( int argc, char * argv[] )
 			case 'c':
 				maxCount = atoi( optarg );
 				break;
+			case 's':
+				serverType = optarg;
+				break;
 			case '?' :
 			case 'v' :
-				printf( "Usage: %s [-p <port>] [-t <threads>] [-c <cache_items>\n", argv[0] );
+				printf( "Usage: %s [-p <port>] [-t <threads>] [-c <cache_items>] [-s <hahs|lf>]\n", argv[0] );
 				exit( 0 );
 		}
 	}
@@ -48,13 +55,23 @@ int main( int argc, char * argv[] )
 
 	SP_CacheEx cacheEx( SP_Cache::eFIFO, maxCount > 0 ? maxCount : 100000 );
 
-	SP_Server server( "", port, new SP_CacheProtoHandlerFactory( &cacheEx ) );
+	if( 0 == strcasecmp( serverType, "hahs" ) ) {
+		SP_Server server( "", port, new SP_CacheProtoHandlerFactory( &cacheEx ) );
 
-	server.setTimeout( 60 );
-	server.setMaxThreads( maxThreads );
-	server.setReqQueueSize( 100, "SERVER_ERROR Server is busy now\r\n" );
+		server.setTimeout( 60 );
+		server.setMaxThreads( maxThreads );
+		server.setReqQueueSize( 100, "SERVER_ERROR Server is busy now\r\n" );
 
-	server.runForever();
+		server.runForever();
+	} else {
+		SP_LFServer server( "", port, new SP_CacheProtoHandlerFactory( &cacheEx ) );
+
+		server.setTimeout( 60 );
+		server.setMaxThreads( maxThreads );
+		server.setReqQueueSize( 100, "SERVER_ERROR Server is busy now\r\n" );
+
+		server.runForever();
+	}
 
 	closelog();
 
