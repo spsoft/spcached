@@ -18,7 +18,7 @@ public:
 	virtual ~SP_CacheMsgDecoder();
 
 	virtual int decode( SP_Buffer * inBuffer );
-	virtual const void * getMsg();
+	SP_CacheProtoMessage * getMsg();
 
 private:
 	SP_CacheProtoMessage * mMessage;
