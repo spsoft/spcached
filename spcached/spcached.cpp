@@ -12,7 +12,7 @@
 #include "spserver.hpp"
 #include "splfserver.hpp"
 
-#include "spcache.hpp"
+#include "spdictcache.hpp"
 
 #include "spcachemsg.hpp"
 #include "spcacheproto.hpp"
@@ -53,7 +53,7 @@ int main( int argc, char * argv[] )
 	openlog( "spcached", LOG_CONS | LOG_PID, LOG_USER );
 #endif
 
-	SP_CacheEx cacheEx( SP_Cache::eFIFO, maxCount > 0 ? maxCount : 100000 );
+	SP_CacheEx cacheEx( SP_DictCache::eFIFO, maxCount > 0 ? maxCount : 100000 );
 
 	if( 0 == strcasecmp( serverType, "hahs" ) ) {
 		SP_Server server( "", port, new SP_CacheProtoHandlerFactory( &cacheEx ) );

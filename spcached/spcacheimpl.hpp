@@ -9,13 +9,13 @@
 #include <pthread.h>
 #include <time.h>
 
-#include "spcache.hpp"
+#include "spdictcache.hpp"
 
 class SP_ArrayList;
 class SP_MsgBlockList;
 class SP_Buffer;
 
-class SP_CacheItemHandler : public SP_CacheHandler {
+class SP_CacheItemHandler : public SP_DictCacheHandler {
 public:
 	SP_CacheItemHandler();
 	virtual ~SP_CacheItemHandler();
@@ -57,7 +57,7 @@ private:
 	// 0 : OK, -1 : NOT_FOUND, -2 : item is non-numeric value
 	int calc( const void * key, int delta, int isIncr, int * newValue );
 
-	SP_Cache * mCache;
+	SP_DictCache * mCache;
 
 	time_t mStartTime;
 	size_t mTotalItems, mCmdGet, mCmdSet;
