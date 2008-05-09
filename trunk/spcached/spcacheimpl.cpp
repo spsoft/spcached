@@ -89,7 +89,7 @@ void SP_CacheItemHandler :: onHit( const void * item, void * resultHolder )
 
 SP_CacheEx :: SP_CacheEx( int algo, int maxItems )
 {
-	mCache = SP_Cache::newInstance( algo, maxItems,
+	mCache = SP_DictCache::newInstance( algo, maxItems,
 			new SP_CacheItemHandler(), 0 );
 
 	time( &mStartTime );
@@ -249,7 +249,7 @@ void SP_CacheEx :: stat( SP_Buffer * buffer )
 
 	char temp[ 512 ] = { 0 };
 
-	SP_CacheStatistics * stat = mCache->getStatistics();
+	SP_DictCacheStatistics * stat = mCache->getStatistics();
 
 	snprintf( temp, sizeof( temp ), "STAT pid %u\r\n", getpid() );
 	buffer->append( temp );

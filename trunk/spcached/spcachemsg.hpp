@@ -9,7 +9,7 @@
 #include <time.h>
 #include <pthread.h>
 
-#include "spcache.hpp"
+#include "spdictcache.hpp"
 
 class SP_ArrayList;
 
