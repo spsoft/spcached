@@ -15,13 +15,11 @@ ifeq ($(origin version), undefined)
 	version = 0.1
 endif
 
-SPSERVER_INCL = -I../spserver/spserver
-SPSERVER_LIB  = -L../spserver/spserver -lspserver -levent
+SPSERVER_LIB  = -L../spserver/ -lspserver -levent -lrt
 
-SPDICT_INCL = -I../spdict/
 SPDICT_LIB  = -L../spdict/ -lspdict
 
-CFLAGS  += $(SPSERVER_INCL) $(SPDICT_INCL)
+CFLAGS  += -I../
 LDFLAGS += $(SPSERVER_LIB) $(SPDICT_LIB) -lpthread -lresolv
 
 #-------------------Cprof related Macros----------------

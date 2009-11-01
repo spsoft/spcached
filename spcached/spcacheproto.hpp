@@ -6,8 +6,8 @@
 #ifndef __spcacheproto_hpp__
 #define __spcacheproto_hpp__
 
-#include "spmsgdecoder.hpp"
-#include "sphandler.hpp"
+#include "spserver/spmsgdecoder.hpp"
+#include "spserver/sphandler.hpp"
 
 class SP_CacheEx;
 class SP_CacheProtoMessage;

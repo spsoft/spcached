@@ -7,10 +7,10 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "spbuffer.hpp"
-#include "sputils.hpp"
-#include "sprequest.hpp"
-#include "spresponse.hpp"
+#include "spserver/spbuffer.hpp"
+#include "spserver/sputils.hpp"
+#include "spserver/sprequest.hpp"
+#include "spserver/spresponse.hpp"
 
 #include "spcacheproto.hpp"
 #include "spcachemsg.hpp"

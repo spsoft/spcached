@@ -24,21 +24,17 @@ You can get the code from the spcached home page:
 
 2.Building
 
-Before building spcached, spserver and spdict must been installed. Test with
-spserver 0.3 and spdict 0.2.
+Before building spcached, libevent must been installed.
 
-You can download spserver 0.3 and spdict 0.2 from its home page:
+You can donwload libevent from its home page:
 
-	http://code.google.com/p/spserver/downloads/list
-	http://code.google.com/p/spdict/downloads/list
+	http://www.monkey.org/~provos/libevent/
 
-Edit spcached/Makefile to specify the path of spserver and spdict:
+Edit spserver/Makefile to specify the path of libevent:
 
-	SPSERVER_INCL = -I<path_to_spserver_include>
-	SPSERVER_LIB  = -L<path_to_spserver_library> -lspserver
+	LIBEVENT_INCL = -I<path_to_libevent_include>
+	LIBEVENT_LIB  = -L<path_to_libevent_library> -levent
 
-	SPDICT_INCL = -I<path_to_spdict_include>
-	SPDICT_LIB  = -L<path_to_spdict_library> -lspdict
 
 To build spcached, type
 
@@ -54,7 +50,7 @@ $ ./spcached -p 11216
 [msg] This server is listening on port [11216].
 
 
-Reports of successful use of spcached are appreciated.
+Any and all comments are appreciated.
 
 Enjoy!
 
