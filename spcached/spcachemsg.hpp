@@ -8,6 +8,7 @@
 
 #include <time.h>
 #include <pthread.h>
+#include <stdint.h>
 
 #include "spdict/spdictcache.hpp"
 
@@ -29,6 +30,9 @@ public:
 	size_t getDataBytes() const;
 	size_t getBlockCapacity() const;
 
+	void setCasUnique( uint64_t casUnique );
+	uint64_t getCasUnique() const;
+
 	void addRef();
 	void release();
 
@@ -39,6 +43,8 @@ private:
 
 	void * mDataBlock;
 	size_t mDataBytes, mBlockCapacity;
+
+	uint64_t mCasUnique;
 
 	pthread_mutex_t mMutex;
 	int mRefCount;

@@ -31,6 +31,8 @@ void SP_CacheItem :: init()
 
 	mRefCount = 1;
 
+	mCasUnique = 0;
+
 	pthread_mutex_init( &mMutex, NULL );
 }
 
@@ -75,6 +77,16 @@ void SP_CacheItem :: setKey( const char * key )
 const char * SP_CacheItem :: getKey() const
 {
 	return mKey;
+}
+
+void SP_CacheItem :: setCasUnique( uint64_t casUnique )
+{
+	mCasUnique = casUnique;
+}
+
+uint64_t SP_CacheItem :: getCasUnique() const
+{
+	return mCasUnique;
 }
 
 void SP_CacheItem :: appendDataBlock( const void * dataBlock, size_t dataBytes,

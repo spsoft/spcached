@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "spserver/spbuffer.hpp"
 #include "spserver/sputils.hpp"
@@ -77,11 +78,19 @@ void SP_CacheItemHandler :: destroy( void * item )
 void SP_CacheItemHandler :: onHit( const void * item, void * resultHolder )
 {
 	if( NULL != resultHolder ) {
-		SP_MsgBlockList * blockList = (SP_MsgBlockList*)resultHolder;
+		Holder_t * holder = (Holder_t*)resultHolder;
 
-		SP_CacheItem * it = (SP_CacheItem*)item;
-		it->addRef();
-		blockList->append( new SP_CacheItemMsgBlock( it ) );
+		if( 0 == holder->mType ) {
+			SP_MsgBlockList * blockList = (SP_MsgBlockList*)holder->mPtr;
+
+			SP_CacheItem * it = (SP_CacheItem*)item;
+			it->addRef();
+			blockList->append( new SP_CacheItemMsgBlock( it ) );
+		} else if( 1 == holder->mType ) {
+			SP_CacheItem * it = (SP_CacheItem*)item;
+			it->addRef();
+			holder->mPtr = it;
+		}
 	}
 }
 
@@ -105,7 +114,7 @@ SP_CacheEx :: ~SP_CacheEx()
 	pthread_mutex_destroy( &mMutex );
 }
 
-int SP_CacheEx :: add( void * item, time_t expTime )
+int SP_CacheEx :: add( SP_CacheItem * item, time_t expTime )
 {
 	int ret = -1;
 
@@ -122,7 +131,7 @@ int SP_CacheEx :: add( void * item, time_t expTime )
 	return ret;
 }
 
-int SP_CacheEx :: set( void * item, time_t expTime )
+int SP_CacheEx :: set( SP_CacheItem * item, time_t expTime )
 {
 	pthread_mutex_lock( &mMutex );
 
@@ -135,7 +144,7 @@ int SP_CacheEx :: set( void * item, time_t expTime )
 	return 0;
 }
 
-int SP_CacheEx :: replace( void * item, time_t expTime )
+int SP_CacheEx :: replace( SP_CacheItem * item, time_t expTime )
 {
 	int ret = -1;
 
@@ -152,7 +161,102 @@ int SP_CacheEx :: replace( void * item, time_t expTime )
 	return ret;
 }
 
-int SP_CacheEx :: erase( const void * key )
+int SP_CacheEx :: cas( SP_CacheItem * item, time_t expTime )
+{
+	int ret = -1;
+
+	SP_CacheItemHandler::Holder_t holder;
+	memset( &holder, 0, sizeof( holder ) );
+	holder.mType = 1;
+
+	pthread_mutex_lock( &mMutex );
+
+	if( mCache->get( item, &holder ) ) {
+		if( NULL != holder.mPtr ) {
+			SP_CacheItem * old = (SP_CacheItem*)holder.mPtr;
+
+			if( ( old->getCasUnique() + 1 ) == item->getCasUnique() ) {
+				old->release();
+
+				ret = 0;
+				mCache->put( item, expTime );
+			} else {
+				ret = 1;
+			}
+		}
+	}
+
+	pthread_mutex_unlock( &mMutex );
+
+	return ret;
+}
+
+int SP_CacheEx :: catbuf( SP_CacheItem * item, time_t expTime, int isAppend )
+{
+	int ret = -1;
+
+	pthread_mutex_lock( &mMutex );
+
+	time_t oldTime = 0;
+	SP_CacheItem * oldItem = (SP_CacheItem*)mCache->remove( item, &oldTime );
+
+	if( NULL != oldItem ) {
+		ret = 0;
+
+		SP_CacheItem * newItem = new SP_CacheItem();
+
+		const char * oldPos = strchr( (char*)oldItem->getDataBlock(), '\n' );
+		const char * pos = strchr( (char*)item->getDataBlock(), '\n' );
+
+		assert( NULL != oldPos && NULL != pos );
+
+		int oldLen = oldItem->getDataBytes() - ( oldPos + 1 - (char*)oldItem->getDataBlock() ) - 2;
+		int len = item->getDataBytes() - ( pos + 1 - (char*)item->getDataBlock() ) - 2;
+
+		int totalBytes = oldLen + len;
+
+		char flags[ 16 ] = { 0 };
+		sp_strtok( (char*)item->getDataBlock(), 2, flags, sizeof( flags ) );
+
+		char buffer[ 512] = { 0 };
+		int buflen = snprintf( buffer, sizeof( buffer ), "VALUE %s %s %d %llu\r\n",
+				item->getKey(), flags, totalBytes, oldItem->getCasUnique() + 1 );
+		newItem->appendDataBlock( buffer, buflen, totalBytes + buflen + 2 );
+
+		if( isAppend ) {
+			newItem->appendDataBlock( oldPos + 1, oldLen );
+			newItem->appendDataBlock( pos + 1, len );
+		} else {
+			newItem->appendDataBlock( pos + 1, len );
+			newItem->appendDataBlock( oldPos + 1, oldLen );
+		}
+
+		newItem->appendDataBlock( "\r\n", 2 );
+		newItem->setCasUnique( oldItem->getCasUnique() + 1 );
+		newItem->setKey( item->getKey() );
+
+		mCache->put( newItem, expTime );
+
+		delete oldItem;
+		delete item;
+	}
+
+	pthread_mutex_unlock( &mMutex );
+
+	return ret;
+}
+
+int SP_CacheEx :: append( SP_CacheItem * item, time_t expTime )
+{
+	return catbuf( item,expTime, 1 );
+}
+
+int SP_CacheEx :: prepend( SP_CacheItem * item, time_t expTime )
+{
+	return catbuf( item,expTime, 0 );
+}
+
+int SP_CacheEx :: erase( const SP_CacheItem * key )
 {
 	int ret = -1;
 
@@ -165,7 +269,12 @@ int SP_CacheEx :: erase( const void * key )
 	return ret;
 }
 
-int SP_CacheEx :: calc( const void * key, int delta, int isIncr, int * newValue )
+int SP_CacheEx :: flushAll( time_t expTime )
+{
+	return 0;
+}
+
+int SP_CacheEx :: calc( const SP_CacheItem * key, int delta, int isIncr, int * newValue )
 {
 	int ret = -1;
 
@@ -200,11 +309,12 @@ int SP_CacheEx :: calc( const void * key, int delta, int isIncr, int * newValue 
 			snprintf( num, sizeof( num ), "%u", value );
 
 			char buffer[ 512 ] = { 0 };
-			snprintf( buffer, sizeof( buffer ), "VALUE %s %d %u\r\n%s\r\n",
-					strKey, flags, strlen( num ), num );
+			snprintf( buffer, sizeof( buffer ), "VALUE %s %d %u %llu\r\n%s\r\n",
+					strKey, flags, strlen( num ), oldItem->getCasUnique() + 1, num );
 
 			SP_CacheItem * newItem = new SP_CacheItem( strKey );
 			newItem->setDataBlock( buffer, strlen( buffer ) );
+			newItem->setCasUnique( oldItem->getCasUnique() + 1 );
 
 			mCache->put( newItem, expTime );
 
@@ -218,12 +328,12 @@ int SP_CacheEx :: calc( const void * key, int delta, int isIncr, int * newValue 
 	return ret;
 }
 
-int SP_CacheEx :: incr( const void * key, int delta, int * newValue )
+int SP_CacheEx :: incr( const SP_CacheItem * key, int delta, int * newValue )
 {
 	return calc( key, delta, 1, newValue );
 }
 
-int SP_CacheEx :: decr( const void * key, int delta, int * newValue )
+int SP_CacheEx :: decr( const SP_CacheItem * key, int delta, int * newValue )
 {
 	return calc( key, delta, 0, newValue );
 }
@@ -232,9 +342,13 @@ void SP_CacheEx :: get( SP_ArrayList * keyList, SP_MsgBlockList * blockList )
 {
 	pthread_mutex_lock( &mMutex );
 
+	SP_CacheItemHandler::Holder_t holder;
+	memset( &holder, 0, sizeof( holder ) );
+	holder.mPtr = blockList;
+
 	for( int i = 0; i < keyList->getCount(); i++ ) {
 		SP_CacheItem keyItem( (char*)keyList->getItem( i ) );
-		mCache->get( &keyItem, blockList );
+		mCache->get( &keyItem, &holder );
 	}
 	mCmdGet++;
 

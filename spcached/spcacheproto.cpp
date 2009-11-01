@@ -55,31 +55,52 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 
 			mMessage = new SP_CacheProtoMessage();
 
-			char key[ 256 ] = { 0 };
-			int flags = 0, bytes = 0;
-			time_t expTime = 0;
+			char cmd[ 32 ] = { 0 }, key[ 256 ] = { 0 }, exptime[ 16 ] = { 0 }, bytes[ 16 ] = { 0 };
 
-			if( 0 == strncmp( line, "add ", 4 ) ||
-					0 == strncmp( line, "set ", 4 ) ||
-					0 == strncmp( line, "replace ", 8 ) ) {
-				mMessage->setCommand( 'a' == *line ? "add" : ( 's' == *line ? "set" : "replace" ) );
+			const char * next = line;
+			sp_strtok( next, 0, cmd, sizeof( cmd ), ' ', &next );
 
-				int ret = sscanf( line, "%*s %250s %u %ld %d\n", key, &flags, &expTime, &bytes );
-				if( 4 == ret && '\0' != key[0] ) {
-					mMessage->setExpTime( expTime );
+			mMessage->setCommand( cmd );
+
+			if( 0 == strcasecmp( cmd, "add" ) || 0 == strcasecmp( cmd, "set" )
+					|| 0 == strcasecmp( cmd, "replace" ) || 0 == strcasecmp( cmd, "cas" )
+					|| 0 == strcasecmp( cmd, "append" ) || 0 == strcasecmp( cmd, "prepend" ) ) {
+				char flags[ 16 ] = { 0 }, casunique[ 32 ] = { 0 };
+
+				if( NULL != next ) sp_strtok( next, 0, key, sizeof( key ), ' ', &next );
+				if( NULL != next ) sp_strtok( next, 0, flags, sizeof( flags ), ' ', &next );
+				if( NULL != next ) sp_strtok( next, 0, exptime, sizeof( exptime ), ' ', &next );
+				if( NULL != next ) sp_strtok( next, 0, bytes, sizeof( bytes ), ' ', &next );
+				if( NULL != next ) sp_strtok( next, 0, casunique, sizeof( casunique ) );
+
+				int ret = -1;
+
+				if( '\0' != key[0] && '\0' != bytes[0] ) {
+					ret = 0;
+
+					mMessage->setExpTime( strtoul( exptime, NULL, 10 ) );
 					mMessage->getItem()->setKey( key );
 
+					uint64_t casid = strtoull( casunique, NULL, 10 ) + 1;
+
 					char buffer[ 512] = { 0 };
-					ret = snprintf( buffer, sizeof( buffer ), "VALUE %s %d %d\r\n", key, flags, bytes );
-					mMessage->getItem()->appendDataBlock( buffer, ret, bytes + ret + 2 );
+					int len = snprintf( buffer, sizeof( buffer ), "VALUE %s %s %s %llu\r\n",
+							key, flags, bytes, casid );
+					mMessage->getItem()->appendDataBlock( buffer, len, atoi( bytes ) + len + 2 );
 
 					status = eMoreData;
+
+					if( 0 == strcasecmp( cmd, "cas" ) ) {
+						if( '\0' != casunique[0] ) {
+							mMessage->getItem()->setCasUnique( casid );
+						} else {
+							mMessage->setError( "CLIENT_ERROR bad command line format" );
+						}
+					}
 				} else {
 					mMessage->setError( "CLIENT_ERROR bad command line format" );
 				}
-			} else if( 0 == strncmp( line, "get ", 4 ) ) {
-				mMessage->setCommand( "get" );
-
+			} else if( 0 == strcasecmp( cmd, "get" ) || 0 == strcasecmp( cmd, "gets" ) ) {
 				char * next = strchr( line, ' ' );
 				for( ; NULL != next && '\0' != *next; ) {
 					char * nextKey = sp_strsep( &next, " " );
@@ -88,28 +109,25 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 					}
 				}
 
-			} else if( 0 == strncmp( line, "delete ", 7 ) ) {
-				mMessage->setCommand( "delete" );
-
-				sscanf( line, "%*s %250s %ld", key, &expTime );
+			} else if( 0 == strcasecmp( cmd, "delete" ) ) {
+				sscanf( line, "%*s %250s %15s", key, exptime );
 				if( '\0' != key[0] ) {
-					mMessage->setExpTime( expTime );
+					mMessage->setExpTime( strtoul( exptime, NULL, 10 ) );
 					mMessage->getItem()->setKey( key );
 				} else {
 					mMessage->setError( "CLIENT_ERROR bad command line format" );
 				}
-			} else if( 0 == strncmp( line, "incr ", 5 ) || 0 == strncmp( line, "decr ", 5 ) ) {
-				mMessage->setCommand( 'i' == *line ? "incr" : "decr" );
-
-				int ret = sscanf( line, "%*s %250s %u\n", key, &bytes );
+			} else if( 0 == strcasecmp( cmd, "incr" ) || 0 == strcasecmp( cmd, "decr" ) ) {
+				int ret = sscanf( line, "%*s %250s %15s\n", key, bytes );
 				if( 2 == ret && '\0' != key[0] ) {
-					mMessage->setDelta( bytes );
+					mMessage->setDelta( atoi( bytes ) );
 					mMessage->getItem()->setKey( key );
 				} else {
 					mMessage->setError( "CLIENT_ERROR bad command line format" );
 				}
-			} else {
-				mMessage->setCommand( line );
+			} else if( 0 == strcasecmp( cmd, "flush_all" ) ) {
+				sp_strtok( line, 1, exptime, sizeof( exptime ) );
+				mMessage->setExpTime( strtoul( exptime, NULL, 10 ) );
 			}
 
 			free( line );
@@ -127,7 +145,7 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 
 		if( item->getBlockCapacity() <= item->getDataBytes() ) status = eOK;
 
-		if( eOK == status && item->getDataBytes() > 2 &&0 != strncmp(
+		if( eOK == status && item->getDataBytes() > 2 && 0 != strncmp(
 				((char*)item->getDataBlock()) + item->getDataBytes() - 2, "\r\n", 2 ) ) {
 			mMessage->setError( "CLIENT_ERROR bad data chunk" );
 		}
@@ -187,6 +205,31 @@ int SP_CacheProtoHandler :: handle( SP_Request * request, SP_Response * response
 					reply->append( "NOT_STORED\r\n" );
 					delete item;
 				}
+			} else if( message->isCommand( "cas" ) ) {
+				ret = mCacheEx->cas( item, message->getExpTime() );
+
+				if( 0 == ret ) {
+					reply->append( "STORED\r\n" );
+				} else {
+					reply->append( 1 == ret ? "EXISTS\r\n" : "NOT_FOUND\r\n" );
+					delete item;
+				}
+
+				ret = 0;
+			} else if( message->isCommand( "append" ) ) {
+				if( 0 == mCacheEx->append( item, message->getExpTime() ) ) {
+					reply->append( "STORED\r\n" );
+				} else {
+					reply->append( "NOT_STORED\r\n" );
+					delete item;
+				}
+			} else if( message->isCommand( "prepend" ) ) {
+				if( 0 == mCacheEx->prepend( item, message->getExpTime() ) ) {
+					reply->append( "STORED\r\n" );
+				} else {
+					reply->append( "NOT_STORED\r\n" );
+					delete item;
+				}
 			} else if( message->isCommand( "delete" ) ) {
 				if( 0 == mCacheEx->erase( item ) ) {
 					reply->append( "DELETED\r\n" );
@@ -225,12 +268,15 @@ int SP_CacheProtoHandler :: handle( SP_Request * request, SP_Response * response
 				reply->append( "\r\n" );
 			}
 		} else {
-			if( message->isCommand( "get" ) ) {
+			if( message->isCommand( "get" ) || message->isCommand( "gets" ) ) {
 				mCacheEx->get( message->getKeyList(), response->getReply()->getFollowBlockList() );
+			} else if( message->isCommand( "flush_all" ) ) {
+				mCacheEx->flushAll( message->getExpTime() );
+				reply->append( "OK\r\n" );
 			} else if( message->isCommand( "stats" ) ) {
 				mCacheEx->stat( reply );
 			} else if( message->isCommand( "version" ) ) {
-				reply->append( "VERSION 1.0\r\n" );
+				reply->append( "VERSION 1.2.5\r\n" );
 			} else if( message->isCommand( "quit" ) ) {
 				ret = 1;
 			} else {
