@@ -8,8 +8,8 @@
 #include <stdio.h>
 
 #include "spcachemsg.hpp"
-#include "spbuffer.hpp"
-#include "sputils.hpp"
+#include "spserver/spbuffer.hpp"
+#include "spserver/sputils.hpp"
 
 SP_CacheItem :: SP_CacheItem( const char * key )
 {

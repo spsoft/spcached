@@ -9,10 +9,10 @@
 #include <syslog.h>
 #include <string.h>
 
-#include "spserver.hpp"
-#include "splfserver.hpp"
+#include "spserver/spserver.hpp"
+#include "spserver/splfserver.hpp"
 
-#include "spdictcache.hpp"
+#include "spdict/spdictcache.hpp"
 
 #include "spcachemsg.hpp"
 #include "spcacheproto.hpp"

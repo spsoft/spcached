@@ -11,9 +11,9 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
-#include "spbuffer.hpp"
-#include "sputils.hpp"
-#include "spmsgblock.hpp"
+#include "spserver/spbuffer.hpp"
+#include "spserver/sputils.hpp"
+#include "spserver/spmsgblock.hpp"
 
 #include "spcacheimpl.hpp"
 
