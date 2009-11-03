@@ -3,20 +3,32 @@
  * For license terms, see the file COPYING along with this library.
  */
 
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <syslog.h>
 #include <string.h>
+#include <assert.h>
+
+#ifndef WIN32
 
 #include "spserver/spserver.hpp"
 #include "spserver/splfserver.hpp"
+
+#else
+
+#include "spserver/spiocpserver.hpp"
+#include "spserver/spiocplfserver.hpp"
+
+typedef SP_IocpServer SP_Server;
+typedef SP_IocpLFServer SP_LFServer;
+
+#endif
 
 #include "spdict/spdictcache.hpp"
 
 #include "spcachemsg.hpp"
 #include "spcacheproto.hpp"
 #include "spcacheimpl.hpp"
+#include "spgetopt.h"
 
 int main( int argc, char * argv[] )
 {
@@ -48,10 +60,12 @@ int main( int argc, char * argv[] )
 	}
 
 #ifdef LOG_PERROR
-	openlog( "spcached", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
+	sp_openlog( "spcached", LOG_CONS | LOG_PID | LOG_PERROR, LOG_USER );
 #else
-	openlog( "spcached", LOG_CONS | LOG_PID, LOG_USER );
+	sp_openlog( "spcached", LOG_CONS | LOG_PID, LOG_USER );
 #endif
+
+	if( 0 != sp_initsock() ) assert( 0 );
 
 	SP_CacheEx cacheEx( SP_DictCache::eFIFO, maxCount > 0 ? maxCount : 100000 );
 
@@ -73,7 +87,7 @@ int main( int argc, char * argv[] )
 		server.runForever();
 	}
 
-	closelog();
+	sp_closelog();
 
 	return 0;
 }

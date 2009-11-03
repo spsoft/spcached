@@ -6,10 +6,10 @@
 #ifndef __spcacheimpl_hpp__
 #define __spcacheimpl_hpp__
 
-#include <pthread.h>
 #include <time.h>
 
 #include "spdict/spdictcache.hpp"
+#include "spserver/spthread.hpp"
 
 class SP_ArrayList;
 class SP_MsgBlockList;
@@ -82,7 +82,7 @@ private:
 	time_t mStartTime;
 	size_t mTotalItems, mCmdGet, mCmdSet;
 
-	pthread_mutex_t mMutex;
+	sp_thread_mutex_t mMutex;
 };
 
 #endif

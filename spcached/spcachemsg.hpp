@@ -7,10 +7,11 @@
 #define __spcachemsg_hpp__
 
 #include <time.h>
-#include <pthread.h>
-#include <stdint.h>
 
 #include "spdict/spdictcache.hpp"
+
+#include "spserver/spporting.hpp"
+#include "spserver/spthread.hpp"
 
 class SP_ArrayList;
 
@@ -46,7 +47,7 @@ private:
 
 	uint64_t mCasUnique;
 
-	pthread_mutex_t mMutex;
+	sp_thread_mutex_t mMutex;
 	int mRefCount;
 };
 

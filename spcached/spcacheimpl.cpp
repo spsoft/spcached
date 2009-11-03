@@ -7,9 +7,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <unistd.h>
 #include <assert.h>
 
 #include "spserver/spbuffer.hpp"
@@ -104,21 +101,21 @@ SP_CacheEx :: SP_CacheEx( int algo, int maxItems )
 	time( &mStartTime );
 	mTotalItems = mCmdGet = mCmdSet = 0;
 
-	pthread_mutex_init( &mMutex, NULL );
+	sp_thread_mutex_init( &mMutex, NULL );
 }
 
 SP_CacheEx :: ~SP_CacheEx()
 {
 	delete mCache;
 
-	pthread_mutex_destroy( &mMutex );
+	sp_thread_mutex_destroy( &mMutex );
 }
 
 int SP_CacheEx :: add( SP_CacheItem * item, time_t expTime )
 {
 	int ret = -1;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	if( 0 == mCache->get( item, NULL ) ) {
 		ret = 0;
@@ -126,20 +123,29 @@ int SP_CacheEx :: add( SP_CacheItem * item, time_t expTime )
 		mTotalItems++;
 	}
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return ret;
 }
 
 int SP_CacheEx :: set( SP_CacheItem * item, time_t expTime )
 {
-	pthread_mutex_lock( &mMutex );
+	SP_CacheItemHandler::Holder_t holder;
+	memset( &holder, 0, sizeof( holder ) );
+	holder.mType = 1;
+
+	sp_thread_mutex_lock( &mMutex );
+
+	if( mCache->get( item, &holder ) ) {
+		SP_CacheItem * old = (SP_CacheItem*)holder.mPtr;
+		item->setCasUnique( old->getCasUnique() + 1 );
+	}
 
 	mCache->put( item, expTime );
 	mTotalItems++;
 	mCmdSet++;
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return 0;
 }
@@ -148,15 +154,23 @@ int SP_CacheEx :: replace( SP_CacheItem * item, time_t expTime )
 {
 	int ret = -1;
 
-	pthread_mutex_lock( &mMutex );
+	SP_CacheItemHandler::Holder_t holder;
+	memset( &holder, 0, sizeof( holder ) );
+	holder.mType = 1;
 
-	if( mCache->get( item, NULL ) ) {
-		ret = 0;
+	sp_thread_mutex_lock( &mMutex );
+
+	if( mCache->get( item, &holder ) ) {
+		ret= 0;
+
+		SP_CacheItem * old = (SP_CacheItem*)holder.mPtr;
+		item->setCasUnique( old->getCasUnique() + 1 );
+
 		mCache->put( item, expTime );
 		mTotalItems++;
 	}
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return ret;
 }
@@ -169,7 +183,7 @@ int SP_CacheEx :: cas( SP_CacheItem * item, time_t expTime )
 	memset( &holder, 0, sizeof( holder ) );
 	holder.mType = 1;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	if( mCache->get( item, &holder ) ) {
 		if( NULL != holder.mPtr ) {
@@ -186,7 +200,7 @@ int SP_CacheEx :: cas( SP_CacheItem * item, time_t expTime )
 		}
 	}
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return ret;
 }
@@ -195,7 +209,7 @@ int SP_CacheEx :: catbuf( SP_CacheItem * item, time_t expTime, int isAppend )
 {
 	int ret = -1;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	time_t oldTime = 0;
 	SP_CacheItem * oldItem = (SP_CacheItem*)mCache->remove( item, &oldTime );
@@ -241,7 +255,7 @@ int SP_CacheEx :: catbuf( SP_CacheItem * item, time_t expTime, int isAppend )
 		delete item;
 	}
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return ret;
 }
@@ -260,11 +274,11 @@ int SP_CacheEx :: erase( const SP_CacheItem * key )
 {
 	int ret = -1;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	if( mCache->erase( key ) ) ret = 0;
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return ret;
 }
@@ -278,7 +292,7 @@ int SP_CacheEx :: calc( const SP_CacheItem * key, int delta, int isIncr, int * n
 {
 	int ret = -1;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	time_t expTime = 0;
 	SP_CacheItem * oldItem = (SP_CacheItem*)mCache->remove( key, &expTime );
@@ -323,7 +337,7 @@ int SP_CacheEx :: calc( const SP_CacheItem * key, int delta, int isIncr, int * n
 		}
 	}
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	return ret;
 }
@@ -340,7 +354,7 @@ int SP_CacheEx :: decr( const SP_CacheItem * key, int delta, int * newValue )
 
 void SP_CacheEx :: get( SP_ArrayList * keyList, SP_MsgBlockList * blockList )
 {
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	SP_CacheItemHandler::Holder_t holder;
 	memset( &holder, 0, sizeof( holder ) );
@@ -352,14 +366,14 @@ void SP_CacheEx :: get( SP_ArrayList * keyList, SP_MsgBlockList * blockList )
 	}
 	mCmdGet++;
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	blockList->append( new SP_SimpleMsgBlock( (void*)"END\r\n", 5, 0 ) );
 }
 
 void SP_CacheEx :: stat( SP_Buffer * buffer )
 {
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 
 	char temp[ 512 ] = { 0 };
 
@@ -374,6 +388,7 @@ void SP_CacheEx :: stat( SP_Buffer * buffer )
 	snprintf( temp, sizeof( temp ), "STAT time %ld\r\n", time( NULL ) );
 	buffer->append( temp );
 
+#ifndef WIN32
 	struct rusage usage;
 	getrusage(RUSAGE_SELF, &usage);
 
@@ -384,6 +399,7 @@ void SP_CacheEx :: stat( SP_Buffer * buffer )
 	snprintf( temp, sizeof( temp ), "STAT rusage_system %ld.%06ld\r\n",
 			usage.ru_stime.tv_sec, usage.ru_stime.tv_usec );
 	buffer->append( temp );
+#endif
 
 	snprintf( temp, sizeof( temp ), "STAT curr_items %d\r\n", stat->getSize() );
 	buffer->append( temp );
@@ -408,6 +424,6 @@ void SP_CacheEx :: stat( SP_Buffer * buffer )
 
 	delete stat;
 
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 }
 

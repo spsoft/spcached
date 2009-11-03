@@ -81,7 +81,11 @@ int SP_CacheMsgDecoder :: decode( SP_Buffer * inBuffer )
 					mMessage->setExpTime( strtoul( exptime, NULL, 10 ) );
 					mMessage->getItem()->setKey( key );
 
-					uint64_t casid = strtoull( casunique, NULL, 10 ) + 1;
+					uint64_t casid = 0;
+					sscanf( casunique, "%llu", &casid );
+					casid += 1;
+
+					//strtoull( casunique, NULL, 10 ) + 1;
 
 					char buffer[ 512] = { 0 };
 					int len = snprintf( buffer, sizeof( buffer ), "VALUE %s %s %s %llu\r\n",
