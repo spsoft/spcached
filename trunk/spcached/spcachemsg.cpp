@@ -33,7 +33,7 @@ void SP_CacheItem :: init()
 
 	mCasUnique = 0;
 
-	pthread_mutex_init( &mMutex, NULL );
+	sp_thread_mutex_init( &mMutex, NULL );
 }
 
 SP_CacheItem :: ~SP_CacheItem()
@@ -44,24 +44,24 @@ SP_CacheItem :: ~SP_CacheItem()
 	if( NULL != mDataBlock ) free( mDataBlock );
 	mDataBlock = NULL;
 
-	pthread_mutex_destroy( &mMutex );
+	sp_thread_mutex_destroy( &mMutex );
 }
 
 void SP_CacheItem :: addRef()
 {
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 	mRefCount++;
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 }
 
 void SP_CacheItem :: release()
 {
 	int refCount = 1;
 
-	pthread_mutex_lock( &mMutex );
+	sp_thread_mutex_lock( &mMutex );
 	mRefCount--;
 	refCount = mRefCount;
-	pthread_mutex_unlock( &mMutex );
+	sp_thread_mutex_unlock( &mMutex );
 
 	if( refCount <= 0 ) delete this;
 }
