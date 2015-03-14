@@ -1,0 +1,1 @@
+spcached bases on [spserver](http://code.google.com/p/spserver/) and [spdict](http://code.google.com/p/spdict/), that implements [memcached protocol](http://code.sixapart.com/svn/memcached/trunk/server/doc/protocol.txt).
